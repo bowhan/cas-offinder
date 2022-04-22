@@ -8,6 +8,7 @@
 #endif
 #include <sstream>
 #include <iterator>
+#include <unordered_set>
 
 using namespace std;
 
@@ -353,9 +354,13 @@ void Cas_OFFinder::compareAll(const char* outfilename, bool issummary) {
 		fo = new ofstream(outfilename, ios::out | ios::app);
 		isfile = true;
 	}
+    unordered_set<string> found_ot;
 	for (auto &ci: m_compares) {
 		compare = ci.first;
 		id = ci.second.first.first;
+        if(found_ot.find(id) != found_ot.end()) {
+            continue;
+        }
 		threshold = ci.second.first.second;
 		memcpy(cl_compare, compare.c_str(), m_patternlen);
 		memcpy(cl_compare + m_patternlen, compare.c_str(), m_patternlen);
@@ -391,7 +396,9 @@ void Cas_OFFinder::compareAll(const char* outfilename, bool issummary) {
 					oclEnqueueReadBuffer(m_queues[dev_index], m_directionbufs[dev_index], CL_FALSE, 0, sizeof(cl_char) * cnt, m_directions[dev_index], 0, 0, 0);
 					oclEnqueueReadBuffer(m_queues[dev_index], m_mmlocibufs[dev_index], CL_FALSE, 0, sizeof(cl_uint) * cnt, m_mmlocis[dev_index], 0, 0, 0);
 					oclFinish(m_queues[dev_index]);
+					bool found = false;
 					for (i = 0; i < cnt; i++) {
+						if(found) break;
 						loci = m_mmlocis[dev_index][i] + m_lasttotalanalyzedsize + localanalyzedsize;
 						if (m_mmcounts[dev_index][i] <= threshold) {
 							strncpy(strbuf, (char *)(m_chrdata.c_str() + loci), m_patternlen);
@@ -448,10 +455,13 @@ void Cas_OFFinder::compareAll(const char* outfilename, bool issummary) {
 									bulge_type = "RNA";
 								}
 								(*fo) << id << "\t" << bulge_type << "\t" << seq_rna << "\t" << seq_dna << "\t" << m_chrnames[idx] << "\t" << loci - m_chrpos[idx] + offset << "\t" << m_directions[dev_index][i] << "\t" << m_mmcounts[dev_index][i] << "\t" << bulge_size << endl;
-								if (issummary) {
+                                found_ot.insert(id);
+                                if (issummary) {
 									snprintf(key, 10000, "%s,%s,%d,%d", id.c_str(), bulge_type.c_str(), bulge_size, m_mmcounts[dev_index][i]);
 									++m_summarytable[string(key)];
 								}
+								found = true;
+                                break;
 							}
 						}
 					}
@@ -520,7 +530,7 @@ void Cas_OFFinder::releaseLociinfo() {
 
 void Cas_OFFinder::print_usage() {
 	unsigned int i, j;
-	cout << "Cas-OFFinder " << CAS_OFFINDER_VERSION << endl <<
+	cout << "Cas-OFFinder One Shot " << CAS_OFFINDER_VERSION << endl <<
 		endl <<
 		"Copyright (c) 2021 Jeongbin Park and Sangsu Bae" << endl <<
 		"Website: " << CAS_OFFINDER_HOMEPAGE_URL << endl <<
